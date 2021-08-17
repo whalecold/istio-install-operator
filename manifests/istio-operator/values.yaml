@@ -1,0 +1,65 @@
+hub: docker.io/istio
+tag: 1.9.5
+
+# ImagePullSecrets for operator ServiceAccount, list of secrets in the same namespace
+# used to pull operator image. Must be set for any cluster configured with private docker registry.
+imagePullSecrets: []
+
+operatorNamespace: istio-operator
+
+# Used to replace istioNamespace to support operator watch multiple namespaces.
+watchedNamespaces: istio-system
+waitForResourcesTimeout: 300s
+
+# Used for helm2 to add the CRDs to templates.
+enableCRDTemplates: false
+
+# revision for the operator resources
+revision: ""
+
+# Operator resource defaults
+operator:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# cert info for the cluster
+ca_cert:
+ca_key: ""
+cert_chain: ""
+root_cert: ""
+
+# the info of remote clusters for primary cluster. should be empty for remote cluster. 
+clusters: []
+#- name: "cluster1"
+#  kubeconfig: ""
+#  namespace: 
+
+istioOperator:
+  # the cluster which the istio will be installed.
+  clusterName: "cluster1"
+  # if install istio default crd for the cluster. True for primary cluster
+  # and disable in remote cluster
+  enableIstioConfigCRDs: true 
+  # if is primary istio. The primary pilot env is different between with remote.
+  isPrimary: true
+  # subnet use for remote cluster ingress loadbalancer, maybe useless
+  subnet: ""
+  #	OutboundTrafficMode the outbound traffic policy mode, can set ALLOW_ANY REGISTRY_ONLY
+  # default is ALLOW_ANY
+  outboundTrafficMode: "ALLOW_ANY"
+  # Profile indicates the profile of istio, `default` is primary istio and `remote` is slave istio.
+  profile: "default"
+  # Tag indicates the version of istio.
+  tag: "1.9.5"
+  # Hub the image hub, will pull image from the hub.
+  hub: "docker.io/istio" 
+  # MeshID the mesh will join in.
+  mesh_id: "mesh1"
+  # RemotePilot the primary cluster's pilot address.
+  remotePilot: "127.0.0.1:15021"
+

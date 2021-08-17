@@ -1,0 +1,135 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: install
+  namespace: {{.Values.watchedNamespaces}}
+spec:
+  components:
+    base:
+      enabled: true
+    cni:
+      enabled: false
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+    - enabled: true
+      k8s:
+        serviceAnnotations:
+          service.beta.kubernetes.io/volcengine-loadbalancer-address-type: PRIVATE
+          service.beta.kubernetes.io/volcengine-loadbalancer-subnet-id: {{.Values.istioOperator.subnet}}
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: network-{{.Values.istioOperator.clusterName}}
+        service:
+          ports:
+          - name: status-port
+            port: 15021
+            targetPort: 15021
+          - name: tls
+            port: 15443
+            targetPort: 15443
+          - name: tls-istiod
+            port: 15012
+            targetPort: 15012
+          - name: tls-webhook
+            port: 15017
+            targetPort: 15017
+      label:
+        app: istio-eastwestgateway
+        istio: eastwestgateway
+        topology.istio.io/network: network-{{.Values.istioOperator.clusterName}}
+      name: istio-eastwestgateway
+    pilot:
+      enabled: true
+      k8s:
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+  meshConfig:
+    outboundTrafficPolicy:
+      mode: {{.Values.istioOperator.outboundTrafficMode | default "ALLOW_ANY"}}
+    defaultConfig:
+      extraStatTags:
+        - request_url_path
+        - request_method
+        - mesh_id
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+        PILOT_ENABLE_MYSQL_FILTER: "true"
+      proxyStatsMatcher:
+        inclusionRegexps:
+        - .*mysql.*
+      tracing:
+        sampling: 100
+        zipkin:
+          address: aos-user-gateway-collector.aos-system:9411
+  profile: {{.Values.istioOperator.profile | default "default"}}
+  tag: {{.Values.istioOperator.tag}}
+  hub: {{.Values.istioOperator.hub}}
+  values:
+    global:
+      meshID: {{.Values.istioOperator.mesh_id}}
+      multiCluster:
+        clusterName: {{.Values.istioOperator.clusterName}}
+      network: network-{{.Values.istioOperator.clusterName}}
+      {{if .Values.istioOperator.remotePilot}}remotePilotAddress: {{.Values.istioOperator.remotePilot}}{{end}}
+    base:
+      enableIstioConfigCRDs: {{.Values.istioOperator.enableIstioConfigCRDs}}
+    telemetry:
+      v2:
+        prometheus:
+          configOverride:
+            gateway:
+              metrics:
+              - dimensions:
+                  request_method: request.method
+                  request_url_path: request.url_path
+                  mesh_id: upstream_peer.mesh_id
+                  source_cluster: node.metadata["CLUSTER_ID"]
+                  destination_cluster: upstream_peer.cluster_id
+                name: requests_total
+              - dimensions:
+                  request_method: request.method
+                  request_url_path: request.url_path
+                  mesh_id: upstream_peer.mesh_id
+                  source_cluster: node.metadata["CLUSTER_ID"]
+                  destination_cluster: upstream_peer.cluster_id
+                name: request_duration_milliseconds
+            inboundSidecar:
+              metrics:
+              - dimensions:
+                  request_method: request.method
+                  request_url_path: request.url_path
+                  mesh_id: downstream_peer.mesh_id
+                  destination_cluster: node.metadata["CLUSTER_ID"],
+                  source_cluster: downstream_peer.cluster_id
+                name: requests_total
+              - dimensions:
+                  request_method: request.method
+                  request_url_path: request.url_path
+                  mesh_id: downstream_peer.mesh_id
+                  destination_cluster: node.metadata["CLUSTER_ID"],
+                  source_cluster: downstream_peer.cluster_id
+                name: request_duration_milliseconds
+            outboundSidecar:
+              metrics:
+              - dimensions:
+                  request_method: request.method
+                  request_url_path: request.url_path
+                  mesh_id: upstream_peer.mesh_id
+                  source_cluster: node.metadata["CLUSTER_ID"]
+                  destination_cluster: upstream_peer.cluster_id
+                name: requests_total
+              - dimensions:
+                  request_method: request.method
+                  request_url_path: request.url_path
+                  mesh_id: upstream_peer.mesh_id
+                  source_cluster: node.metadata["CLUSTER_ID"]
+                  destination_cluster: upstream_peer.cluster_id
+                name: request_duration_milliseconds 
